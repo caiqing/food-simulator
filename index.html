@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>美食模拟器 v2 · 生存挑战</title>
+<style>
+  :root{
+    --ink:#3b2412; --panel:#fff6e0; --panel2:#ffe9bd; --line:#8a5a2b;
+    --accent:#e67e22; --gold:#f1a90f; --green:#4c9a3f; --red:#c0392b; --blue:#2e6b8a;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-user-select:none; user-select:none; }
+  body{
+    background:#241708 radial-gradient(1200px 600px at 50% -100px, #4a2f14, #241708);
+    color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display:flex; justify-content:center; padding:12px; min-height:100vh; align-items:flex-start;
+  }
+  #wrap{ width:1000px; max-width:100%; }
+  #topbar{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--panel); border:3px solid var(--line); border-bottom:none;
+    border-radius:14px 14px 0 0; padding:9px 14px; font-size:15px; font-weight:700;
+    box-shadow:inset 0 -6px 0 rgba(138,90,43,.12);
+  }
+  .stat{ display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .grow{ flex:1; }
+  .barwrap{
+    width:110px; height:14px; background:#e8d7b5; border:2px solid var(--line);
+    border-radius:8px; overflow:hidden; position:relative;
+  }
+  .barfill{ height:100%; border-radius:5px; transition:width .35s; }
+  .barlabel{ font-size:12px; font-weight:700; position:relative; z-index:1; }
+  .barstack{ display:flex; align-items:center; gap:5px; }
+  .barstack .barwrap{ position:relative; }
+  .barstack .barlabel{
+    position:absolute; left:0; right:0; top:-1px; text-align:center; color:#4a3216;
+  }
+  #moneybox{ color:#a8720a; font-size:17px; }
+  #lvbox{ color:var(--blue); }
+  #soldbox{ color:#8e44ad; }
+  button{
+    font-family:inherit; font-weight:700; cursor:pointer; color:var(--ink);
+    border:2px solid var(--line); border-radius:9px; background:#ffe9a8;
+    padding:5px 12px; font-size:14px; box-shadow:0 2px 0 rgba(59,36,18,.35);
+  }
+  button:active{ transform:translateY(2px); box-shadow:none; }
+  button:disabled{ opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+  button.green{ background:#cdeab5; }
+  button.orange{ background:#ffd08a; }
+  button.red{ background:#f6b8ac; }
+  #main{ display:flex; gap:0; align-items:stretch; }
+  #kitchen{
+    flex:1.6; background:var(--panel); border:3px solid var(--line);
+    padding:10px; border-radius:0 0 0 14px; min-width:0;
+  }
+  #side{ flex:1; display:flex; flex-direction:column; background:var(--panel2);
+    border:3px solid var(--line); border-left:none; border-radius:0 0 14px 0; min-width:0; }
+  h2{
+    font-size:15px; padding:4px 6px 8px; color:#6b4318; display:flex; align-items:center; gap:8px;
+  }
+  h2 .hint{ font-size:12px; color:#9b7a4e; font-weight:400; margin-left:auto; }
+  #recipes{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:8px;
+  }
+  .recipe{
+    border:2px solid var(--line); border-radius:10px; background:#fffdf4; padding:8px;
+    display:flex; flex-direction:column; gap:4px; position:relative; overflow:hidden;
+    cursor:pointer; transition:transform .08s;
+  }
+  .recipe:hover{ transform:translateY(-2px); background:#fff; }
+  .recipe.locked{ filter:grayscale(.9); opacity:.55; cursor:not-allowed; }
+  .recipe.locked:hover{ transform:none; }
+  .recipe.dis{ box-shadow:0 0 0 2px var(--red) inset; }
+  .rname{ font-weight:800; font-size:14px; display:flex; align-items:center; gap:6px; }
+  .remoji{ font-size:26px; line-height:1; }
+  .dish-img{
+    width:44px; height:44px; object-fit:contain; flex:none;
+    filter:drop-shadow(0 2px 2px rgba(59,36,18,.22));
+  }
+  .dish .dish-img{ width:38px; height:38px; }
+  #resultemoji .dish-img{ width:58px; height:58px; }
+  .panimg{ width:88px; height:74px; object-fit:contain; filter:drop-shadow(0 3px 3px rgba(59,36,18,.3)); }
+  .rhead{ display:flex; align-items:center; justify-content:space-between; }
+  .rinfo{ font-size:12px; color:#7a5c33; line-height:1.5; }
+  .rinfo b{ color:#3b2412; }
+  .rbtn{ margin-top:2px; width:100%; font-size:13px; padding:4px 0; }
+  .locknote{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(255,250,235,.72); font-weight:800; color:#6b4318; font-size:13px; text-align:center;
+    padding:6px;
+  }
+  #shelfbox, #restbox{ padding:10px 10px 6px; }
+  #shelf{
+    display:flex; flex-direction:column; gap:6px; min-height:60px;
+  }
+  .dish{
+    display:flex; align-items:center; gap:8px; background:#fffdf4; border:2px solid var(--line);
+    border-radius:10px; padding:6px 8px; animation:pop .25s;
+  }
+  @keyframes pop{ from{ transform:scale(.7); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  .dish .remoji{ font-size:22px; }
+  .dish .dmain{ flex:1; min-width:0; }
+  .dish .dname{ font-size:13px; font-weight:800; }
+  .dish .dsub{ font-size:11px; color:#8a6a3d; }
+  .stars{ color:var(--gold); font-size:12px; letter-spacing:1px; }
+  .dish .btns{ display:flex; gap:4px; }
+  .dish button{ font-size:12px; padding:3px 8px; border-radius:7px; }
+  #shelfempty{ color:#a8875a; font-size:12px; text-align:center; padding:14px 0; }
+  .restrow{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .restrow .desc{ flex:1; font-size:12px; color:#7a5c33; line-height:1.45; }
+  .restrow button{ white-space:nowrap; font-size:13px; }
+  #logbox{ padding:4px 10px 12px; flex:1; display:flex; flex-direction:column; min-height:110px; }
+  #log{
+    flex:1; overflow-y:auto; background:#fffdf4; border:2px solid var(--line); border-radius:10px;
+    padding:7px 9px; font-size:12px; line-height:1.7; max-height:150px;
+  }
+  #log .t{ color:#9b7a4e; }
+  #log .good{ color:#2e7d32; } #log .bad{ color:#c0392b; } #log .sys{ color:#8e44ad; }
+  /* 烹饪覆盖层 */
+  #overlay{
+    position:fixed; inset:0; background:rgba(30,17,5,.78); display:none;
+    align-items:center; justify-content:center; z-index:50;
+  }
+  #overlay.show{ display:flex; }
+  #cookcard{
+    width:min(560px,94vw); background:var(--panel); border:4px solid var(--line); border-radius:16px;
+    padding:20px 22px; text-align:center; box-shadow:0 14px 50px rgba(0,0,0,.5);
+    animation:pop .22s;
+  }
+  #cooktitle{ font-size:18px; font-weight:800; }
+  #cooksub{ font-size:13px; color:#7a5c33; margin:4px 0 14px; }
+  #panzone{ font-size:52px; line-height:1.15; }
+  .pan{ display:inline-block; }
+  .pan.cooking{ animation:shake .5s infinite; }
+  @keyframes shake{
+    0%,100%{ transform:rotate(0); } 25%{ transform:rotate(-8deg) translateY(-3px); }
+    75%{ transform:rotate(8deg) translateY(-3px); }
+  }
+  #heatwrap{
+    position:relative; height:40px; border:3px solid var(--line); border-radius:12px;
+    overflow:hidden; margin:6px 0 4px; background:#f3e3c2;
+  }
+  #heatgood{
+    position:absolute; top:0; bottom:0; background:#a9d98f; border-left:2px solid #6b9b53; border-right:2px solid #6b9b53;
+  }
+  #heatperfect{
+    position:absolute; top:0; bottom:0; background:linear-gradient(#ffe27a,#f5b62e);
+    box-shadow:0 0 12px rgba(241,169,15,.8) inset;
+  }
+  #needle{
+    position:absolute; top:-4px; width:6px; height:48px; background:#c0392b; border-radius:3px;
+    box-shadow:0 0 6px rgba(192,57,43,.8);
+  }
+  #zonelabel{
+    display:flex; justify-content:space-between; font-size:11px; color:#9b7a4e; margin-bottom:14px;
+  }
+  #cookbtns{ display:flex; gap:10px; justify-content:center; }
+  #cookbtns button{ font-size:16px; padding:9px 26px; }
+  #cookhint{ font-size:12px; color:#9b7a4e; margin-top:10px; }
+  /* 结算弹层 */
+  #result{
+    position:fixed; inset:0; background:rgba(30,17,5,.6); display:none;
+    align-items:center; justify-content:center; z-index:60; pointer-events:none;
+  }
+  #result.show{ display:flex; }
+  #resultcard{
+    background:var(--panel); border:4px solid var(--line); border-radius:16px; padding:18px 34px;
+    text-align:center; animation:pop .2s; box-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  #resultemoji{ font-size:44px; }
+  #resultname{ font-size:20px; font-weight:800; margin:4px 0 2px; }
+  #resultdetail{ font-size:13px; color:#7a5c33; }
+  /* 飘字 */
+  .float{
+    position:fixed; z-index:70; font-weight:800; pointer-events:none; font-size:16px;
+    animation:rise 1s forwards; text-shadow:0 1px 0 #fff, 0 0 4px #fff;
+  }
+  @keyframes rise{ from{ opacity:1; transform:translateY(0); } to{ opacity:0; transform:translateY(-34px); } }
+  /* 胜利横幅 */
+  #winbar{
+    display:none; margin-top:10px; background:linear-gradient(90deg,#f5b62e,#ffe27a,#f5b62e);
+    border:3px solid var(--line); border-radius:12px; padding:10px; text-align:center;
+    font-weight:800; font-size:15px; color:#6b4318;
+  }
+  #combochip{
+    display:none; background:#3b2412; color:#ffe27a; font-size:12px; font-weight:800;
+    border-radius:999px; padding:2px 10px;
+  }
+  /* 游戏结束 */
+  #gameover{
+    position:fixed; inset:0; background:rgba(20,10,2,.88); display:none;
+    align-items:center; justify-content:center; z-index:80;
+  }
+  #gameover.show{ display:flex; }
+  #gocard{
+    width:min(460px,92vw); background:var(--panel); border:4px solid var(--line); border-radius:16px;
+    padding:24px 28px; text-align:center; animation:pop .25s; box-shadow:0 14px 50px rgba(0,0,0,.6);
+  }
+  #goemoji{ font-size:52px; line-height:1; }
+  #gotitle{ font-size:22px; font-weight:800; margin:8px 0 2px; color:var(--red); }
+  #gosub{ font-size:13px; color:#7a5c33; margin-bottom:10px; }
+  #gostats{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:10px 0 16px; }
+  #gostats div{
+    background:#fffdf4; border:2px solid var(--line); border-radius:10px;
+    padding:8px 4px; font-size:12px; color:#7a5c33;
+  }
+  #gostats b{ display:block; font-size:18px; color:var(--ink); margin-top:2px; }
+  #hpwarn{
+    display:none; background:#5c1f16; color:#ffd7cd; font-size:12px; font-weight:800;
+    border-radius:999px; padding:2px 10px; animation:blink 1s infinite;
+  }
+  @keyframes blink{ 50%{ opacity:.4; } }
+  #verchip{
+    position:fixed; right:10px; bottom:10px; z-index:90; font-size:11px; font-weight:800;
+    color:#9b7a4e; background:rgba(255,246,224,.92); border:2px solid var(--line);
+    border-radius:999px; padding:3px 10px; pointer-events:none;
+  }
+  #bgmBtn{ font-size:12px; padding:3px 9px; border-radius:999px; }
+  @media (max-width:760px){
+    #main{ flex-direction:column; }
+    #kitchen{ border-radius:0; }
+    #side{ border-left:3px solid var(--line); border-radius:0 0 14px 14px; }
+    .barwrap{ width:80px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="topbar">
+    <div class="stat" id="moneybox">💰 <span id="money">50</span> 元</div>
+    <div class="stat barstack">❤️<div class="barwrap"><div class="barfill" id="hpbar" style="background:#e05c4b"></div><div class="barlabel" id="hplabel">100</div></div></div>
+    <div class="stat barstack">⚡<div class="barwrap"><div class="barfill" id="stambar" style="background:#7ec850"></div><div class="barlabel" id="stamlabel">100</div></div></div>
+    <div class="stat barstack">🍚<div class="barwrap"><div class="barfill" id="satibar" style="background:#f0a03c"></div><div class="barlabel" id="satilabel">100</div></div></div>
+    <div class="stat" id="lvbox">⭐ Lv.<span id="lv">1</span><div class="barwrap" style="width:70px"><div class="barfill" id="expbar" style="background:#6fb3d6"></div></div></div>
+    <div class="stat">📅 第 <span id="day">1</span> 天</div>
+    <div class="stat" id="soldbox">🏆 累计营业额 <span id="sold">0</span></div>
+    <div class="grow"></div>
+    <span id="combochip">🔥 连击 ×0</span>
+    <span id="hpwarn">⚠️ 健康流失中</span>
+    <button id="bgmBtn">🎵 音乐：开</button>
+  </div>
+
+  <div id="main">
+    <div id="kitchen">
+      <h2>🍳 我的小厨房 <span class="hint">点菜开做 · 火候停在金色区 = 完美出品</span></h2>
+      <div id="recipes"></div>
+      <div id="winbar">🎉 <b>美食街传奇达成！</b>累计营业额突破 8888 元，小吃街为你挂上金字招牌！（可以继续玩）</div>
+    </div>
+    <div id="side">
+      <div id="shelfbox">
+        <h2>🥡 出菜台 <span class="hint" id="shelfcount">0/8</span></h2>
+        <div id="shelf"><div id="shelfempty">还没有做好的菜，去左边开火吧！</div></div>
+      </div>
+      <div id="restbox">
+        <h2>🍽️ 吃饭 <span class="hint">饿肚子没法干活</span></h2>
+        <div class="restrow">
+          <div class="desc">吃自家菜：饱食 <b>+按菜价</b>，体力 +15，不花钱</div>
+        </div>
+        <div class="restrow">
+          <div class="desc">街口面馆：饱食 +50，体力 +20</div>
+          <button class="green" id="noodleBtn">🍜 30元</button>
+        </div>
+        <div class="restrow">
+          <div class="desc">火锅大餐：饱食全满，体力 +40</div>
+          <button class="orange" id="hotpotBtn">🔥 100元</button>
+        </div>
+      </div>
+      <div id="logbox">
+        <h2>📜 流水账</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="cookcard">
+    <div id="cooktitle">🍳 正在烹饪…</div>
+    <div id="cooksub"></div>
+    <div id="panzone"><span class="pan" id="pan">🍲</span></div>
+    <div id="heatwrap">
+      <div id="heatgood"></div>
+      <div id="heatperfect"></div>
+      <div id="needle"></div>
+    </div>
+    <div id="zonelabel"><span>👈 火小</span><span>金色区 = 完美 · 绿色区 = 良好</span><span>火大 👉</span></div>
+    <div id="cookbtns">
+      <button class="red" id="stopBtn">🔥 起锅！</button>
+      <button id="cancelBtn">倒掉放弃</button>
+    </div>
+    <div id="cookhint">食材已下锅，放弃将白白浪费采购钱！</div>
+  </div>
+</div>
+
+<div id="result"><div id="resultcard">
+  <div id="resultemoji">🌟</div>
+  <div id="resultname"></div>
+  <div id="resultdetail"></div>
+</div></div>
+
+<div id="gameover"><div id="gocard">
+  <div id="goemoji">😵</div>
+  <div id="gotitle">你饿晕了！</div>
+  <div id="gosub"></div>
+  <div id="gostats"></div>
+  <button class="red" id="restartBtn" style="font-size:16px; padding:9px 26px;">🔄 再开一档</button>
+</div></div>
+
+<div id="verchip">🍞 v2.0 生存版</div>
+
+<script>
+'use strict';
+/* ================= 数据 ================= */
+const RECIPES = [
+  { id:'qingcai', name:'白灼青菜', emoji:'🥬', cost:5,  price:13,  stam:8,  lv:1, speed:1.4, pw:.11, gw:.30 },
+  { id:'fanqie',  name:'番茄炒蛋', emoji:'🍅', cost:10, price:26,  stam:10, lv:1, speed:1.6, pw:.10, gw:.28 },
+  { id:'danchao', name:'黄金蛋炒饭', emoji:'🍚', cost:12, price:32,  stam:11, lv:1, speed:1.7, pw:.10, gw:.27 },
+  { id:'jinsi',   name:'青椒肉丝', emoji:'🫑', cost:18, price:46,  stam:14, lv:2, speed:1.9, pw:.09, gw:.25 },
+  { id:'tangcu',  name:'糖醋排骨', emoji:'🍖', cost:30, price:78,  stam:18, lv:3, speed:2.1, pw:.085,gw:.23 },
+  { id:'hongshao',name:'秘制红烧肉', emoji:'🥘', cost:40, price:104, stam:22, lv:4, speed:2.3, pw:.08, gw:.21 },
+  { id:'luyu',    name:'清蒸鲈鱼', emoji:'🐟', cost:52, price:136, stam:26, lv:5, speed:2.5, pw:.075,gw:.19 },
+  { id:'gongbao', name:'宫保鸡丁', emoji:'🍗', cost:64, price:168, stam:30, lv:6, speed:2.7, pw:.07, gw:.17 },
+  { id:'fogao',   name:'佛跳墙',   emoji:'🫕', cost:130,price:340, stam:42, lv:8, speed:3.0, pw:.06, gw:.14 },
+  { id:'manhan',  name:'满汉全席', emoji:'🍱', cost:280,price:740, stam:60, lv:10,speed:3.4, pw:.05, gw:.12 },
+];
+const QUALITY = {
+  perfect:{ mult:1.35, stars:'★★★', label:'完美出品', emoji:'🌟', cls:'good' },
+  good:   { mult:1.0,  stars:'★★',  label:'火候刚好', emoji:'😋', cls:'good' },
+  normal: { mult:0.68, stars:'★',   label:'勉强能吃', emoji:'😅', cls:'bad'  },
+};
+const SHELF_MAX = 8, WIN_GOAL = 8888;
+
+/* ================= 状态 ================= */
+const S = {
+  money: 50, hp: 100, stam: 100, sati: 100, lv: 1, exp: 0,
+  day: 1, combo: 0, soldTotal: 0, cooked: 0, eaten: 0, foodSpend: 0,
+  shelf: [], won: false, dead: false,
+};
+let cooking = null; // {recipe, t, dir, raf}
+
+/* ================= 工具 ================= */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+/* 内嵌菜品插画（源文件在 img/，base64 内联保证单文件可玩） */
+const SVG_DATA = {
+  danchao:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8cGF0aCBkPSJNMzIgNjIgUTM2IDQ2IDUwIDQ0IFE2NCA0NiA2OCA2MiBRNTggNjggNTAgNjYgUTQwIDY4IDMyIDYyIFoiIGZpbGw9IiNmNWM1NDIiIHN0cm9rZT0iI2Q5YTAyYiIgc3Ryb2tlLXdpZHRoPSIxLjYiLz4KICA8ZyBmaWxsPSIjZmZmM2M0Ij4KICAgIDxlbGxpcHNlIGN4PSI0MiIgY3k9IjU0IiByeD0iMyIgcnk9IjEuNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTE4IDQyIDU0KSIvPgogICAgPGVsbGlwc2UgY3g9IjUyIiBjeT0iNTAiIHJ4PSIzIiByeT0iMS42IiB0cmFuc2Zvcm09InJvdGF0ZSgxNCA1MiA1MCkiLz4KICAgIDxlbGxpcHNlIGN4PSI1OCIgY3k9IjU3IiByeD0iMyIgcnk9IjEuNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTggNTggNTcpIi8+CiAgICA8ZWxsaXBzZSBjeD0iNDYiIGN5PSI2MCIgcng9IjMiIHJ5PSIxLjYiIHRyYW5zZm9ybT0icm90YXRlKDIwIDQ2IDYwKSIvPgogIDwvZz4KICA8ZyBzdHJva2U9IiM0YzlhM2YiIHN0cm9rZS13aWR0aD0iMi4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiPgogICAgPHBhdGggZD0iTTQ0IDQ2IEw0OCA0MiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik01NiA0OCBMNjAgNDUiIGZpbGw9Im5vbmUiLz4KICA8L2c+Cjwvc3ZnPgo=",
+  fanqie:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8cGF0aCBkPSJNMzAgNTggUTM0IDQ4IDQ0IDUwIFE1NCA0NCA2MiA1MiBRNzIgNTIgNzAgNjIgUTY2IDcwIDU0IDY4IFE0MCA3MiAzMiA2NiBaIiBmaWxsPSIjZmZkOTVlIiBzdHJva2U9IiNlMGE2M2EiIHN0cm9rZS13aWR0aD0iMS42Ii8+CiAgPGNpcmNsZSBjeD0iNDAiIGN5PSI1NiIgcj0iNSIgZmlsbD0iI2U4NTMzZiIgc3Ryb2tlPSIjYjkzYTJhIiBzdHJva2Utd2lkdGg9IjEuNCIvPgogIDxjaXJjbGUgY3g9IjU1IiBjeT0iNjAiIHI9IjYiIGZpbGw9IiNlODUzM2YiIHN0cm9rZT0iI2I5M2EyYSIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8Y2lyY2xlIGN4PSI2MiIgY3k9IjUzIiByPSI0LjUiIGZpbGw9IiNlZjZhNGYiIHN0cm9rZT0iI2I5M2EyYSIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8Y2lyY2xlIGN4PSI0NyIgY3k9IjYzIiByPSI0IiBmaWxsPSIjZWY2YTRmIiBzdHJva2U9IiNiOTNhMmEiIHN0cm9rZS13aWR0aD0iMS40Ii8+CiAgPHBhdGggZD0iTTM2IDUyIFE0MCA1MCA0MyA1MiIgc3Ryb2tlPSIjZmZmM2M0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIvPgo8L3N2Zz4K",
+  fogao:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8cGF0aCBkPSJNMzAgNDQgUTI4IDY2IDM2IDcyIFE1MCA3OCA2NCA3MiBRNzIgNjYgNzAgNDQgWiIgZmlsbD0iIzhhNWEyYiIgc3Ryb2tlPSIjNWUzYzE3IiBzdHJva2Utd2lkdGg9IjIuMiIvPgogIDxlbGxpcHNlIGN4PSI1MCIgY3k9IjQ0IiByeD0iMjAiIHJ5PSI3IiBmaWxsPSIjYTg3MjNhIiBzdHJva2U9IiM1ZTNjMTciIHN0cm9rZS13aWR0aD0iMiIvPgogIDxlbGxpcHNlIGN4PSI1MCIgY3k9IjQ0IiByeD0iMTQiIHJ5PSI0LjUiIGZpbGw9IiNlOGE4M2UiLz4KICA8cGF0aCBkPSJNMzIgNDAgUTMwIDI2IDQwIDIyIEw2MCAyMiBRNzAgMjYgNjggNDAgUTYwIDQ0IDUwIDQ0IFE0MCA0NCAzMiA0MCBaIiBmaWxsPSIjOTY2MjJlIiBzdHJva2U9IiM1ZTNjMTciIHN0cm9rZS13aWR0aD0iMi4yIi8+CiAgPHBhdGggZD0iTTQwIDM0IEg2MCIgc3Ryb2tlPSIjN2E0YzIwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik00NSAyMiBRNDQgMTYgNDcgMTMgTTU1IDIyIFE1NiAxNiA1MyAxMyIgc3Ryb2tlPSIjYmJiIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIgb3BhY2l0eT0iLjgiLz4KICA8ZyBmaWxsPSIjZmZkOTVlIj48Y2lyY2xlIGN4PSI0NSIgY3k9IjQzIiByPSIxLjQiLz48Y2lyY2xlIGN4PSI1MyIgY3k9IjQ0IiByPSIxLjQiLz48Y2lyY2xlIGN4PSI1OCIgY3k9IjQyIiByPSIxLjIiLz48L2c+Cjwvc3ZnPgo=",
+  gongbao:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8ZyBzdHJva2U9IiM5YzVhMWYiIHN0cm9rZS13aWR0aD0iMS40Ij4KICAgIDxyZWN0IHg9IjM2IiB5PSI1MiIgd2lkdGg9IjgiIGhlaWdodD0iNyIgcng9IjIiIGZpbGw9IiNlMGEzNGUiIHRyYW5zZm9ybT0icm90YXRlKC0xNCA0MCA1NSkiLz4KICAgIDxyZWN0IHg9IjQ4IiB5PSI0OCIgd2lkdGg9IjgiIGhlaWdodD0iNyIgcng9IjIiIGZpbGw9IiNkNjk0NDMiIHRyYW5zZm9ybT0icm90YXRlKDEwIDUyIDUxKSIvPgogICAgPHJlY3QgeD0iNTYiIHk9IjU2IiB3aWR0aD0iOCIgaGVpZ2h0PSI3IiByeD0iMiIgZmlsbD0iI2UwYTM0ZSIgdHJhbnNmb3JtPSJyb3RhdGUoLTYgNjAgNTkpIi8+CiAgICA8cmVjdCB4PSI0MiIgeT0iNjAiIHdpZHRoPSI4IiBoZWlnaHQ9IjciIHJ4PSIyIiBmaWxsPSIjYzk4YTNhIiB0cmFuc2Zvcm09InJvdGF0ZSgxNiA0NiA2MykiLz4KICA8L2c+CiAgPGcgZmlsbD0iI2I1NDQyYSIgc3Ryb2tlPSIjOGEyZjFjIiBzdHJva2Utd2lkdGg9IjEuMiI+CiAgICA8ZWxsaXBzZSBjeD0iNTIiIGN5PSI1OCIgcng9IjQiIHJ5PSIyIiB0cmFuc2Zvcm09InJvdGF0ZSgyNCA1MiA1OCkiLz4KICAgIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjUwIiByeD0iNCIgcnk9IjIiIHRyYW5zZm9ybT0icm90YXRlKC0xOCA2MCA1MCkiLz4KICA8L2c+CiAgPGcgZmlsbD0iI2U4Yzk4YSIgc3Ryb2tlPSIjYjk4ZjRhIiBzdHJva2Utd2lkdGg9IjEiPgogICAgPGNpcmNsZSBjeD0iNDQiIGN5PSI1MiIgcj0iMi4yIi8+PGNpcmNsZSBjeD0iNTgiIGN5PSI2MyIgcj0iMi4yIi8+PGNpcmNsZSBjeD0iMzgiIGN5PSI2MCIgcj0iMi4yIi8+CiAgPC9nPgogIDxnIHN0cm9rZT0iIzRjOWEzZiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik00NiA0NyBMNTAgNDQiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNNjIgNTQgTDY2IDUxIiBmaWxsPSJub25lIi8+PC9nPgo8L3N2Zz4K",
+  hongshao:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8ZyBzdHJva2U9IiM2ZTJmMTQiIHN0cm9rZS13aWR0aD0iMS42Ij4KICAgIDxyZWN0IHg9IjM0IiB5PSI0OCIgd2lkdGg9IjE1IiBoZWlnaHQ9IjEzIiByeD0iMi41IiBmaWxsPSIjOWMzZjFjIi8+CiAgICA8cmVjdCB4PSI1MCIgeT0iNDciIHdpZHRoPSIxNSIgaGVpZ2h0PSIxMyIgcng9IjIuNSIgZmlsbD0iIzhhMzYxNyIvPgogICAgPHJlY3QgeD0iNDIiIHk9IjU1IiB3aWR0aD0iMTUiIGhlaWdodD0iMTMiIHJ4PSIyLjUiIGZpbGw9IiNhODQ2MWYiLz4KICA8L2c+CiAgPHBhdGggZD0iTTM0IDUxIEg0OSBNNTAgNTAgSDY1IiBzdHJva2U9IiNlMGE3NmUiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJNMzggNTAgUTQwIDQ4IDQzIDQ5IiBzdHJva2U9IiNmZmRiYWMiIHN0cm9rZS13aWR0aD0iMS42IiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiLz4KPC9zdmc+Cg==",
+  jinsi:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8ZyBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiPgogICAgPHBhdGggZD0iTTMyIDYyIFE0NCA1NCA1OCA1NiBRNjggNTggNjggNjIiIHN0cm9rZT0iI2M5OGQ1YSIgc3Ryb2tlLXdpZHRoPSIzLjQiLz4KICAgIDxwYXRoIGQ9Ik0zNCA1OCBRNDYgNTAgNjAgNTIiIHN0cm9rZT0iI2UwYTc2ZSIgc3Ryb2tlLXdpZHRoPSIzLjIiLz4KICAgIDxwYXRoIGQ9Ik0zNiA2NiBRNTAgNjIgNjQgNjQiIHN0cm9rZT0iI2I5N2Y0YyIgc3Ryb2tlLXdpZHRoPSIzLjIiLz4KICAgIDxwYXRoIGQ9Ik0zOCA1NCBRNDggNDYgNjIgNTAiIHN0cm9rZT0iIzRjOWEzZiIgc3Ryb2tlLXdpZHRoPSIzIi8+CiAgICA8cGF0aCBkPSJNNDAgNjIgUTU0IDU2IDY2IDU4IiBzdHJva2U9IiM1ZGExNDQiIHN0cm9rZS13aWR0aD0iMyIvPgogIDwvZz4KPC9zdmc+Cg==",
+  luyu:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQ0IiByeT0iMjciIGZpbGw9IiNlOGVlZjIiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjM1IiByeT0iMTgiIGZpbGw9IiNmN2ZhZmMiIHN0cm9rZT0iI2M5ZDZkZCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8ZyBzdHJva2U9IiM0YTdjOTQiIHN0cm9rZS13aWR0aD0iMS42Ij4KICAgIDxwYXRoIGQ9Ik0yNCA1OCBRNDIgNDYgNjIgNTQgUTcwIDU3IDcwIDYwIFE3MCA2MyA2MiA2NiBRNDIgNzIgMjQgNjIgUTIyIDYwIDI0IDU4IFoiIGZpbGw9IiM3ZmIyYzkiLz4KICAgIDxwYXRoIGQ9Ik02MiA1NCBMNzQgNDggUTczIDU2IDcwIDYwIFE3MyA2NCA3NCA3MiBMNjIgNjYgWiIgZmlsbD0iIzZiYTNiYSIvPgogICAgPHBhdGggZD0iTTQwIDUyIFE0NiA0NyA1NCA1MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNWQ4ZmE2Ii8+CiAgPC9nPgogIDxjaXJjbGUgY3g9IjMxIiBjeT0iNTciIHI9IjEuNiIgZmlsbD0iIzI0M2E0NiIvPgogIDxnIHN0cm9rZT0iIzRjOWEzZiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiPgogICAgPHBhdGggZD0iTTQ0IDUyIEw0OCA0OSBNNTQgNTEgTDU4IDQ4IE01MCA2NiBMNTQgNjkiIGZpbGw9Im5vbmUiLz4KICA8L2c+Cjwvc3ZnPgo=",
+  manhan:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI1NiIgcng9IjQ1IiByeT0iMzIiIGZpbGw9IiNiMDNhMmUiIHN0cm9rZT0iIzdhMWYxNiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI1NiIgcng9IjM3IiByeT0iMjUiIGZpbGw9IiNkOTU1M2YiIHN0cm9rZT0iIzljMmYyMiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjU0IiByPSIxMyIgZmlsbD0iI2Y1YzU0MiIgc3Ryb2tlPSIjYzA4YTFlIiBzdHJva2Utd2lkdGg9IjEuNiIvPgogIDxnIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIxLjQiPgogICAgPGVsbGlwc2UgY3g9IjMwIiBjeT0iNDYiIHJ4PSI5IiByeT0iNi41IiBmaWxsPSIjZmZmZGY2Ii8+CiAgICA8ZWxsaXBzZSBjeD0iNzAiIGN5PSI0NiIgcng9IjkiIHJ5PSI2LjUiIGZpbGw9IiNmZmZkZjYiLz4KICAgIDxlbGxpcHNlIGN4PSIzMCIgY3k9IjY2IiByeD0iOSIgcnk9IjYuNSIgZmlsbD0iI2ZmZmRmNiIvPgogICAgPGVsbGlwc2UgY3g9IjcwIiBjeT0iNjYiIHJ4PSI5IiByeT0iNi41IiBmaWxsPSIjZmZmZGY2Ii8+CiAgPC9nPgogIDxlbGxpcHNlIGN4PSIzMCIgY3k9IjQ1IiByeD0iNS41IiByeT0iMyIgZmlsbD0iI2U4NTMzZiIvPgogIDxlbGxpcHNlIGN4PSI3MCIgY3k9IjQ1IiByeD0iNS41IiByeT0iMyIgZmlsbD0iIzVkYTE0NCIvPgogIDxlbGxpcHNlIGN4PSIzMCIgY3k9IjY1IiByeD0iNS41IiByeT0iMyIgZmlsbD0iIzdmYjJjOSIvPgogIDxlbGxpcHNlIGN4PSI3MCIgY3k9IjY1IiByeD0iNS41IiByeT0iMyIgZmlsbD0iI2UwYTM0ZSIvPgogIDxwYXRoIGQ9Ik00NiA1MCBRNTAgNDYgNTQgNTAiIHN0cm9rZT0iI2ZmZjNjNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiLz4KPC9zdmc+Cg==",
+  pan:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAgMTAwIj4KICA8cGF0aCBkPSJNNDYgMzAgUTQ0IDIyIDQ4IDE2IE02MCAyOCBRNTggMTggNjMgMTIgTTc0IDMwIFE3MyAyMiA3NyAxNiIgc3Ryb2tlPSIjY2ZjZmNmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIgb3BhY2l0eT0iLjg1Ii8+CiAgPHBhdGggZD0iTTIyIDQyIFE2MCA1MCA5OCA0MiBMODggNjggUTYwIDgwIDMyIDY4IFoiIGZpbGw9IiMzYTNhM2YiIHN0cm9rZT0iIzFmMWYyNCIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNjAiIGN5PSI0MiIgcng9IjM4IiByeT0iOSIgZmlsbD0iIzU0NTQ1YyIgc3Ryb2tlPSIjMWYxZjI0IiBzdHJva2Utd2lkdGg9IjIuNSIvPgogIDxlbGxpcHNlIGN4PSI2MCIgY3k9IjQyIiByeD0iMzAiIHJ5PSI2IiBmaWxsPSIjNmE2YTc0Ii8+CiAgPHBhdGggZD0iTTk4IDQyIFExMTIgNDQgMTE0IDUwIiBzdHJva2U9IiMxZjFmMjQiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+CiAgPHBhdGggZD0iTTQwIDU1IFE2MCA2MiA4MCA1NSIgc3Ryb2tlPSIjMmEyYTJmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIvPgo8L3N2Zz4K",
+  qingcai:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8ZyBzdHJva2U9IiMzZjZiMmUiIHN0cm9rZS13aWR0aD0iMS42IiBzdHJva2UtbGluZWNhcD0icm91bmQiPgogICAgPHBhdGggZD0iTTM0IDY2IFEzNiA0OCA0NCA0MiBRNDYgNTIgNDAgNjYgWiIgZmlsbD0iIzVkYTE0NCIvPgogICAgPHBhdGggZD0iTTQ0IDY2IFE0NiA0MiA1NSAzNiBRNTggNTAgNTAgNjYgWiIgZmlsbD0iIzZjYjA0ZiIvPgogICAgPHBhdGggZD0iTTU1IDY2IFE1OCA0NiA2OCA0MiBRNjggNTYgNjAgNjYgWiIgZmlsbD0iIzVkYTE0NCIvPgogIDwvZz4KICA8cGF0aCBkPSJNNDAgNjQgTDQ2IDUyIE01MCA2NCBMNTQgNDYgTTYwIDY0IEw2NCA1MiIgc3Ryb2tlPSIjZTlmNWUwIiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+Cjwvc3ZnPgo=",
+  tangcu:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjQyIiByeT0iMjgiIGZpbGw9IiNmN2YzZWEiIHN0cm9rZT0iIzhhNWEyYiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz4KICA8ZWxsaXBzZSBjeD0iNTAiIGN5PSI2MCIgcng9IjMyIiByeT0iMTkiIGZpbGw9IiNmZmZkZjYiIHN0cm9rZT0iI2RkZDBiNCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8ZyBzdHJva2U9IiM3YTNiMWQiIHN0cm9rZS13aWR0aD0iMS42Ij4KICAgIDxyZWN0IHg9IjM0IiB5PSI1MCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjkiIHJ4PSI0LjUiIGZpbGw9IiNhNjUyMmEiIHRyYW5zZm9ybT0icm90YXRlKC0xMiA0NCA1NCkiLz4KICAgIDxyZWN0IHg9IjQ2IiB5PSI1NiIgd2lkdGg9IjIyIiBoZWlnaHQ9IjkiIHJ4PSI0LjUiIGZpbGw9IiNiNDVjMmYiIHRyYW5zZm9ybT0icm90YXRlKDggNTcgNjApIi8+CiAgICA8cmVjdCB4PSIzOCIgeT0iNTgiIHdpZHRoPSIyMCIgaGVpZ2h0PSI5IiByeD0iNC41IiBmaWxsPSIjOTQ0MDFmIiB0cmFuc2Zvcm09InJvdGF0ZSgtNCA0OCA2MikiLz4KICA8L2c+CiAgPHBhdGggZD0iTTM4IDUyIFE0NCA0OSA1MCA1MSBNNTAgNTkgUTU3IDU3IDYzIDYwIiBzdHJva2U9IiNlODg3NWEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+CiAgPGcgZmlsbD0iI2ZmZjNjNCI+PGNpcmNsZSBjeD0iNDIiIGN5PSI1OCIgcj0iMS4xIi8+PGNpcmNsZSBjeD0iNTUiIGN5PSI1NCIgcj0iMS4xIi8+PGNpcmNsZSBjeD0iNjAiIGN5PSI2MiIgcj0iMS4xIi8+PGNpcmNsZSBjeD0iNDgiIGN5PSI2MyIgcj0iMS4xIi8+PC9nPgo8L3N2Zz4K"
+};
+/* 菜品图片：图片缺失时自动回退为 emoji */
+function dishImg(id, emoji, cls){
+  const src = SVG_DATA[id] || ('img/' + id + '.svg');
+  return `<img class="dish-img ${cls||''}" src="${src}" alt="" draggable="false"
+    onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'remoji',textContent:'${emoji}'}))">`;
+}
+const now = () => {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+};
+function log(msg, cls){
+  const el = $('log');
+  const div = document.createElement('div');
+  div.innerHTML = `<span class="t">[${now()}]</span> <span class="${cls||''}">${msg}</span>`;
+  el.prepend(div);
+  while (el.children.length > 40) el.lastChild.remove();
+}
+function floatText(anchor, text, color){
+  const r = (anchor||document.body).getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'float';
+  el.textContent = text;
+  el.style.left = (r.left + r.width/2 - 20 + (Math.random()*40-20)) + 'px';
+  el.style.top  = (r.top - 6) + 'px';
+  el.style.color = color || '#2e7d32';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1000);
+}
+/* 简易音效 */
+let AC = null;
+function beep(freq, dur, type, vol){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type||'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol||.12, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, AC.currentTime + (dur||.15));
+    o.connect(g).connect(AC.destination);
+    o.start(); o.stop(AC.currentTime + (dur||.15));
+  }catch(e){}
+}
+const sfx = {
+  click:()=>beep(660,.08,'triangle'),
+  perfect:()=>{ beep(880,.12,'sine'); setTimeout(()=>beep(1320,.18,'sine'),90); },
+  normal:()=>beep(300,.15,'sawtooth',.07),
+  coin:()=>{ beep(988,.09,'square',.08); setTimeout(()=>beep(1319,.14,'square',.08),80); },
+  eat:()=>{ beep(520,.09,'sine'); setTimeout(()=>beep(392,.12,'sine'),90); },
+  lvup:()=>{ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.16,'sine'),i*110)); },
+  bad:()=>beep(180,.25,'sawtooth',.1),
+};
+
+/* ================= 背景音乐（程序化五声音阶小曲） ================= */
+const BGM = (()=>{
+  const midi = n => 440 * Math.pow(2, (n-69)/12);
+  // C 宫调式五声小曲，32 步循环（null = 休止）；步长 = 八分音符
+  const MELODY = [
+    67,69,72,72,  69,67,64,null,  67,69,72,74,  76,74,72,null,
+    76,79,81,79,  76,74,72,69,    67,69,72,74,  72,null,67,null,
+  ];
+  const BASS = [ // 每步低音（稀疏）
+    48,null,55,null, 45,null,52,null, 45,null,52,null, 48,null,52,null,
+    48,null,55,null, 45,null,52,null, 43,null,50,null, 48,null,48,null,
+  ];
+  const STEP = 0.22;          // 每步秒数（≈136 BPM 八分音符）
+  const LOOKAHEAD = 0.35;     // 预调度窗口
+  let on = true, timer = null, step = 0, nextTime = 0;
+  function playNote(f, t, dur, type, vol){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .02);
+    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(AC.destination);
+    o.start(t); o.stop(t + dur + .05);
+  }
+  function scheduler(){
+    if (!on || !AC) return;
+    while (nextTime < AC.currentTime + LOOKAHEAD){
+      const i = step % MELODY.length;
+      if (MELODY[i]) playNote(midi(MELODY[i]), nextTime, STEP*0.9, 'triangle', .045);
+      if (BASS[i])   playNote(midi(BASS[i]),   nextTime, STEP*1.7, 'sine',     .038);
+      nextTime += STEP; step++;
+    }
+    timer = setTimeout(scheduler, 120);
+  }
+  function start(){
+    if (!on) return;
+    try{
+      AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume();
+      if (timer) return;
+      nextTime = Math.max(nextTime, AC.currentTime + .1);
+      scheduler();
+    }catch(e){}
+  }
+  function stop(){ if (timer){ clearTimeout(timer); timer = null; } }
+  return {
+    start, stop,
+    toggle(){
+      on = !on;
+      if (on) start(); else stop();
+      return on;
+    },
+    get on(){ return on; },
+  };
+})();
+// 浏览器要求首次用户手势后才能出声：任意点击时尝试启动
+document.addEventListener('pointerdown', function once(){
+  if (BGM.on) BGM.start();
+  document.removeEventListener('pointerdown', once);
+});
+$('bgmBtn').onclick = ()=>{
+  const nowOn = BGM.toggle();
+  $('bgmBtn').textContent = nowOn ? '🎵 音乐：开' : '🔇 音乐：关';
+};
+
+/* ================= 渲染 ================= */
+function expNeed(lv){ return Math.round(60 * Math.pow(1.6, lv-1)); }
+function lvPriceBonus(){ return 1 + (S.lv-1)*0.02; }
+function comboBonus(){ return Math.min(S.combo*0.05, 0.30); }
+function finalPrice(r, q){
+  return Math.round(r.price * QUALITY[q].mult * lvPriceBonus() * (1+comboBonus()));
+}
+
+function renderTop(){
+  $('money').textContent = Math.floor(S.money);
+  const hpNow = clamp(S.hp,0,100);
+  $('hpbar').style.width = hpNow + '%';
+  $('hpbar').style.background = hpNow > 50 ? '#e05c4b' : (hpNow > 25 ? '#e67e22' : '#8e1d10');
+  $('hplabel').textContent = Math.floor(S.hp);
+  $('stambar').style.width = clamp(S.stam,0,100) + '%';
+  $('stamlabel').textContent = Math.floor(S.stam);
+  $('satibar').style.width = clamp(S.sati,0,100) + '%';
+  $('satilabel').textContent = Math.floor(S.sati);
+  $('lv').textContent = S.lv;
+  $('expbar').style.width = clamp(S.exp/expNeed(S.lv)*100,0,100) + '%';
+  $('day').textContent = S.day;
+  $('sold').textContent = S.soldTotal;
+  $('hpwarn').style.display = (S.sati <= 0 && !S.dead) ? 'inline-block' : 'none';
+  const chip = $('combochip');
+  if (S.combo >= 2){ chip.style.display='inline-block'; chip.textContent = '🔥 连击 ×'+S.combo+'（售价+'+Math.round(comboBonus()*100)+'%）'; }
+  else chip.style.display='none';
+}
+function renderRecipes(){
+  const box = $('recipes');
+  box.innerHTML = '';
+  RECIPES.forEach(r=>{
+    const locked = S.lv < r.lv;
+    const div = document.createElement('div');
+    div.className = 'recipe' + (locked?' locked':'');
+    const heal = Math.round(r.price*0.8);
+    div.innerHTML = `
+      <div class="rhead"><span class="rname">${r.name}</span>${dishImg(r.id, r.emoji)}</div>
+      <div class="rinfo">成本 <b>${r.cost}</b> → 售价 <b>${r.price}</b>${locked?'':`<br>⚡-${r.stam} · 🍚-4 · 经验+${Math.round(r.price*0.5)}`}</div>
+      ${locked
+        ? `<div class="locknote">🔒 需要厨艺 Lv.${r.lv}</div>`
+        : `<button class="rbtn orange">开火烹饪</button>`}
+    `;
+    if (!locked){
+      div.onclick = ()=>startCook(r);
+      // 不可行提示
+      const noMoney = S.money < r.cost, noStam = S.stam < r.stam, noFood = S.sati < 5, full = S.shelf.length >= SHELF_MAX;
+      if (noMoney||noStam||noFood||full||S.dead) div.classList.add('dis');
+      div.title = S.dead?'你已经饿晕了':noMoney?'钱不够买食材':noStam?'体力不足':noFood?'饿得没力气做饭，先吃点东西':full?'出菜台满了':'';
+    }
+    box.appendChild(div);
+  });
+}
+function renderShelf(){
+  const box = $('shelf');
+  box.innerHTML = '';
+  $('shelfcount').textContent = S.shelf.length + '/' + SHELF_MAX;
+  if (!S.shelf.length){ box.innerHTML = '<div id="shelfempty">还没有做好的菜，去左边开火吧！</div>'; return; }
+  S.shelf.forEach((d, i)=>{
+    const q = QUALITY[d.q];
+    const div = document.createElement('div');
+    div.className = 'dish';
+    div.innerHTML = `
+      ${dishImg(d.id, d.emoji)}
+      <div class="dmain">
+        <div class="dname">${d.name} <span class="stars">${q.stars}</span></div>
+        <div class="dsub">出售 +${d.fp} 元 · 自吃 饱食+${d.heal} 体力+15</div>
+      </div>
+      <div class="btns">
+        <button class="green">💰 卖出</button>
+        <button class="orange">😋 吃掉</button>
+      </div>`;
+    const [bSell, bEat] = div.querySelectorAll('button');
+    bSell.onclick = ()=>{
+      S.money += d.fp; S.soldTotal += d.fp; S.shelf.splice(i,1);
+      sfx.coin(); floatText(bSell, '+'+d.fp+' 元');
+      log(`卖出 ${d.emoji}${d.name}（${q.label}），进账 <b>${d.fp}</b> 元。`, 'good');
+      checkWin(); renderAll();
+    };
+    bEat.onclick = ()=>{
+      S.sati = clamp(S.sati + d.heal, 0, 100);
+      S.stam = clamp(S.stam + 15, 0, 100);
+      S.eaten++;
+      S.shelf.splice(i,1);
+      sfx.eat(); floatText(bEat, '饱食+'+d.heal, '#e67e22');
+      log(`吃掉自家的 ${d.emoji}${d.name}，饱食 +${d.heal}，体力 +15。`, '');
+      renderAll();
+    };
+    box.appendChild(div);
+  });
+}
+function renderAll(){ renderTop(); renderRecipes(); renderShelf(); }
+
+/* ================= 升级 ================= */
+function gainExp(n){
+  S.exp += n;
+  while (S.exp >= expNeed(S.lv)){
+    S.exp -= expNeed(S.lv);
+    S.lv++;
+    sfx.lvup();
+    log(`⭐ 厨艺升到 <b>Lv.${S.lv}</b>！新菜谱可能已解锁，售价 +2%。`, 'sys');
+    const unlocked = RECIPES.filter(r=>r.lv===S.lv).map(r=>r.emoji+' '+r.name);
+    if (unlocked.length) log(`解锁新菜谱：${unlocked.join('、')}！`, 'sys');
+  }
+}
+
+/* ================= 烹饪小游戏 ================= */
+function startCook(r){
+  if (cooking) return;
+  if (S.dead)             { toastInfo('人已经饿晕了，做不了饭……'); return; }
+  if (S.money < r.cost)   { toastInfo('钱不够买食材！'); return; }
+  if (S.stam  < r.stam)   { toastInfo('体力不足，歇会儿再来。'); return; }
+  if (S.sati  < 5)        { toastInfo('饿得头晕眼花，先吃点东西！'); return; }
+  if (S.shelf.length >= SHELF_MAX){ toastInfo('出菜台满了，先处理做好的菜！'); return; }
+  S.money -= r.cost;
+  S.sati  = clamp(S.sati - 4, 0, 100);
+  S.stam  = clamp(S.stam - r.stam, 0, 100);
+  renderTop();
+  log(`买入食材开始做 ${r.emoji}${r.name}（成本 ${r.cost} 元）。`, '');
+  sfx.click();
+  openCook(r);
+}
+function openCook(r){
+  cooking = { r, t:Math.random()*0.4, dir:1 };
+  $('cooktitle').textContent = '🍳 正在烹饪：' + r.name;
+  $('cooksub').textContent = `看准时机起锅！这道菜火候指针速度 ${r.speed.toFixed(1)}×`;
+  $('pan').classList.add('cooking');
+  // 判定区宽度按菜谱
+  const gw = r.gw*100, pw = r.pw*100;
+  $('heatgood').style.left = (50-gw)+'%'; $('heatgood').style.width = gw*2+'%';
+  $('heatperfect').style.left = (50-pw)+'%'; $('heatperfect').style.width = pw*2+'%';
+  $('overlay').classList.add('show');
+  let last = performance.now();
+  const loop = ts=>{
+    if (!cooking) return;
+    const dt = Math.min((ts-last)/1000, .05); last = ts;
+    cooking.t += cooking.dir * r.speed * dt;
+    if (cooking.t > 1){ cooking.t = 1; cooking.dir = -1; }
+    if (cooking.t < 0){ cooking.t = 0; cooking.dir = 1; }
+    $('needle').style.left = `calc(${cooking.t*100}% - 3px)`;
+    cooking.raf = requestAnimationFrame(loop);
+  };
+  cooking.raf = requestAnimationFrame(loop);
+}
+function judgeStop(){
+  if (!cooking) return;
+  cancelAnimationFrame(cooking.raf);
+  const { r, t } = cooking;
+  cooking = null;
+  $('pan').classList.remove('cooking');
+  const off = Math.abs(t - 0.5);
+  const q = off <= r.pw ? 'perfect' : (off <= r.gw ? 'good' : 'normal');
+  finishCook(r, q);
+}
+function cancelCook(){
+  if (!cooking) return;
+  cancelAnimationFrame(cooking.raf);
+  cooking = null;
+  $('overlay').classList.remove('show');
+  $('pan').classList.remove('cooking');
+  sfx.bad();
+  log('把锅里的菜倒掉了……食材钱打了水漂 😭', 'bad');
+  renderAll();
+}
+function finishCook(r, q){
+  $('overlay').classList.remove('show');
+  const Q = QUALITY[q];
+  const fp = finalPrice(r, q);
+  const heal = Math.round(r.price * 0.8 * Q.mult * lvPriceBonus());
+  if (q === 'perfect'){ S.combo++; sfx.perfect(); }
+  else { S.combo = 0; if (q==='normal') sfx.normal(); else sfx.click(); }
+  S.shelf.push({ id:r.id, name:r.name, emoji:r.emoji, q, fp, heal });
+  S.cooked++;
+  gainExp(Math.round(r.price*0.5));
+  // 结算浮层
+  $('resultemoji').innerHTML = dishImg(r.id, r.emoji);
+  $('resultname').textContent = r.name + ' · ' + Q.label;
+  $('resultdetail').textContent = `${Q.stars} 品质｜出售可得 ${fp} 元｜自吃恢复饱食 ${heal}` + (S.combo>=2?`｜🔥连击 ×${S.combo}`:'');
+  $('result').classList.add('show');
+  setTimeout(()=>$('result').classList.remove('show'), 1100);
+  if (q==='perfect') log(`🌟 ${r.name} 完美出品！${S.combo>=2?`连击 ×${S.combo}，售价加成 +${Math.round(comboBonus()*100)}%！`:''}`, 'good');
+  else if (q==='normal') log(`${r.name} 火候没掌握好，勉强能吃……`, 'bad');
+  else log(`${r.name} 出锅，火候刚好！`, '');
+  renderAll();
+}
+function toastInfo(msg){
+  $('resultemoji').textContent = '💡';
+  $('resultname').textContent = msg;
+  $('resultdetail').textContent = '';
+  $('result').classList.add('show');
+  setTimeout(()=>$('result').classList.remove('show'), 1000);
+}
+
+/* ================= 吃饭（餐厅） ================= */
+$('noodleBtn').onclick = ()=>{
+  if (S.dead){ toastInfo('人已经饿晕了，吃不动了……'); return; }
+  if (S.money < 30){ toastInfo('钱包比脸还干净，先去赚钱！'); return; }
+  if (S.sati > 92){ toastInfo('现在肚子很饱，去了也吃不下。'); return; }
+  S.money -= 30; S.foodSpend += 30; S.eaten++;
+  S.sati = clamp(S.sati+50, 0, 100);
+  S.stam = clamp(S.stam+20, 0, 100);
+  sfx.eat(); log('在街口面馆吃了碗热汤面：饱食 +50，体力 +20（-30 元）。', '');
+  renderAll();
+};
+$('hotpotBtn').onclick = ()=>{
+  if (S.dead){ toastInfo('人已经饿晕了，吃不动了……'); return; }
+  if (S.money < 100){ toastInfo('火锅大餐要 100 元，先攒攒钱！'); return; }
+  S.money -= 100; S.foodSpend += 100; S.eaten++;
+  S.sati = 100; S.stam = clamp(S.stam+40, 0, 100);
+  sfx.eat(); setTimeout(sfx.perfect, 150);
+  log('涮了一顿火锅大餐！饱食回满，体力 +40（-100 元）。','sys');
+  renderAll();
+};
+
+/* ================= 主循环（时间流逝） ================= */
+const DAY_TICKS = 30; // 2s 一跳，60 秒 = 1 天
+let tickCount = 0;
+setInterval(()=>{
+  tickCount++;
+  if (S.dead) return;
+  // 饱食度消耗：约每 2 秒 -1
+  S.sati = clamp(S.sati - 0.5, 0, 100);
+  // 体力恢复速率受饱食度影响
+  const reg = S.sati > 50 ? 1.6 : S.sati > 25 ? 0.9 : 0.35;
+  S.stam = clamp(S.stam + reg, 0, 100);
+  // 饿肚子掉健康；吃好喝好缓慢回血
+  if (S.sati <= 0){
+    S.hp = clamp(S.hp - 2, 0, 100);
+    if (tickCount % 6 === 0) log('饿到眼前发黑，健康正在流失！快吃点东西！', 'bad');
+    if (S.hp <= 0){ gameOver(); return; }
+  } else if (S.sati > 70 && S.hp < 100){
+    S.hp = clamp(S.hp + 1, 0, 100);
+  }
+  if (S.hp <= 30 && S.hp > 0 && tickCount % 9 === 0)
+    log('⚠️ 健康见底了……按时吃饭才能活下去。', 'bad');
+  // 天数推进
+  if (tickCount % DAY_TICKS === 0){
+    S.day++;
+    log(`📅 第 ${S.day} 天开始了。人活着，钱得越赚越多才行。`, 'sys');
+  }
+  renderTop();
+  // 菜谱可行性状态会随资源变化，低频刷新
+  if (tickCount % 4 === 0) renderRecipes();
+}, 2000);
+
+/* 救济金兜底：防止钱和饱食双低卡死 */
+setInterval(()=>{
+  if (S.dead) return;
+  if (S.money < 5 && S.sati < 15 && S.shelf.length === 0){
+    S.money += 30; S.sati = clamp(S.sati+40,0,100);
+    log('一位老顾客看你可怜，塞给你 30 元和一盒饭 🍱（系统救济）', 'sys');
+    renderAll();
+  }
+}, 8000);
+
+/* ================= 饿晕结算 & 重开 ================= */
+function gameOver(){
+  S.dead = true;
+  if (cooking){
+    cancelAnimationFrame(cooking.raf);
+    cooking = null;
+    $('overlay').classList.remove('show');
+    $('pan').classList.remove('cooking');
+  }
+  sfx.bad();
+  BGM.stop();
+  log('😵 你眼前一黑，饿倒在了小厨房里……本档结束。', 'bad');
+  $('goemoji').textContent = ['😵','🥴','💀'][Math.floor(Math.random()*3)];
+  $('gotitle').textContent = '你饿晕了！';
+  $('gosub').textContent = `撑到第 ${S.day} 天，健康见底。活着才是硬道理，再来一档？`;
+  $('gostats').innerHTML = `
+    <div>存活<b>${S.day} 天</b></div>
+    <div>厨艺<b>Lv.${S.lv}</b></div>
+    <div>做菜<b>${S.cooked} 份</b></div>
+    <div>营业额<b>${S.soldTotal} 元</b></div>
+    <div>吃饭花销<b>${S.foodSpend} 元</b></div>
+    <div>干饭次数<b>${S.eaten} 顿</b></div>`;
+  $('gameover').classList.add('show');
+  renderAll();
+}
+function resetGame(){
+  Object.assign(S, {
+    money: 50, hp: 100, stam: 100, sati: 100, lv: 1, exp: 0,
+    day: 1, combo: 0, soldTotal: 0, cooked: 0, eaten: 0, foodSpend: 0,
+    shelf: [], won: false, dead: false,
+  });
+  $('gameover').classList.remove('show');
+  $('winbar').style.display = 'none';
+  $('log').innerHTML = '';
+  log('新的一档开张！这次记得：按时吃饭，别把自己饿晕 🍚', 'sys');
+  if (BGM.on) BGM.start();
+  renderAll();
+}
+$('restartBtn').onclick = resetGame;
+
+/* ================= 胜利 ================= */
+function checkWin(){
+  if (!S.won && S.soldTotal >= WIN_GOAL){
+    S.won = true;
+    $('winbar').style.display = 'block';
+    sfx.lvup(); setTimeout(sfx.coin, 500);
+    log('🏆 累计营业额突破 8888 元，你成了美食街的传奇！', 'sys');
+  }
+}
+
+/* ================= 绑定 & 启动 ================= */
+$('stopBtn').onclick = judgeStop;
+$('cancelBtn').onclick = cancelCook;
+$('pan').innerHTML = dishImg('pan','🍲','panimg');
+document.addEventListener('keydown', e=>{
+  if (e.code === 'Space'){
+    if (cooking){ e.preventDefault(); judgeStop(); }
+    else if ($('overlay').classList.contains('show')){ e.preventDefault(); cancelCook(); }
+  }
+});
+renderAll();
+log('欢迎来到幸福小吃街！小本经营，50 元本金，先活下去再说 🍳', 'sys');
+log('活法：点菜开火 → 火候停在金色区 = 完美出品 → 出菜台「卖出」赚钱。', 'sys');
+log('生存铁律：吃饭要花钱；🍚饱食见底会掉 ❤️健康，健康归零就饿晕结算。赚了钱记得按时干饭！', 'sys');
+</script>
+</body>
+</html>
